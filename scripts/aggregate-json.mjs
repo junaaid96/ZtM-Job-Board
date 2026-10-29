@@ -1,34 +1,27 @@
-import fs from "fs"
-import path from "path"
-import { v4 as uuidv4 } from "uuid"
+import path from 'path'
+import {
+    aggregate,
+    collectUnknownCountryValues,
+    formatCountryWarning,
+} from './lib/aggregate.mjs'
 
-const JSON_SOURCE_DIR = "Submissions"
-const FINAL_JSON_FILE = "src/assets/persons.json"
-let dirContent = null
-const finalJSON = []
+const JSON_SOURCE_DIR = 'Submissions'
+const FINAL_JSON_FILE = 'src/assets/persons.json'
 
+// Prints nothing on success apart from the warning for unrecognised country
+// values (unknown issues only), because the Build workflow posts any output
+// from this script as a commit comment.
 try {
-  dirContent = fs.readdirSync(path.resolve(JSON_SOURCE_DIR))
-} catch (e) {
-  console.log(`error while reading "${JSON_SOURCE_DIR}": ` + e.message)
-}
-
-try {
-  for (let i = 0; i < dirContent.length; i++) {
-    const jsonContent__raw = fs.readFileSync(
-      path.resolve(JSON_SOURCE_DIR, dirContent[i]),
-      { encoding: "utf-8" }
+    const { submissions } = aggregate({
+        sourceDir: path.resolve(JSON_SOURCE_DIR),
+        outputFile: path.resolve(FINAL_JSON_FILE),
+    })
+    const warning = formatCountryWarning(
+        collectUnknownCountryValues(submissions)
     )
-
-    const jsonContent__parsed = JSON.parse(jsonContent__raw)
-    jsonContent__parsed.id = uuidv4()
-    finalJSON.push(jsonContent__parsed)
-  }
+    if (warning !== '') console.log(warning)
 } catch (e) {
-  console.log(`error: ` + e.message)
+    console.error(`error: ${e.message}`)
+    console.error(`${FINAL_JSON_FILE} was not updated.`)
+    process.exitCode = 1
 }
-
-fs.writeFileSync(
-  path.resolve(FINAL_JSON_FILE),
-  JSON.stringify(finalJSON, null, 2)
-)
